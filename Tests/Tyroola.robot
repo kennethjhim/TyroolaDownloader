@@ -2,17 +2,19 @@
 Documentation  This is some basic info about the whole suite
 Library  SeleniumLibrary
 Library  OperatingSystem
+Library  String
 
 
 *** Tasks ***
 Download files from Popeye
     [Documentation]  Script to download files from Tyroola
-    ${download directory}  Join Path  ${OUTPUT DIR}  tyroola
+    ${download directory}=  Join Path  ${OUTPUT DIR}  tyroola
     Create Directory  ${download directory}
+    Empty Directory  ${download directory}
 
     # list of plugins to disable. disabling PDF Viewer is necessary so that PDFs are saved rather than displayed
     ${chrome options}=  Evaluate  sys.modules['selenium.webdriver'].ChromeOptions()  sys, selenium.webdriver
-    ${prefs}  Create Dictionary  download.default_directory=${download directory}  plugins.always_open_pdf_externally=${TRUE}
+    ${prefs}=  Create Dictionary  download.default_directory=${download directory}  plugins.always_open_pdf_externally=${TRUE}
     Call Method  ${chrome options}  add_experimental_option  prefs  ${prefs}
     Create Webdriver  Chrome  chrome_options=${chrome options}
 
@@ -31,17 +33,30 @@ Download files from Popeye
         # Click Link  css=#invoices > tbody > tr > td:nth-child(1) > a
         ${invoices}=  Get WebElements  css=#invoices > tbody > tr > td:nth-child(1) > a
         ${length} =  Get Length  ${invoices}
-        Run Keyword If  ${length} > 0  download_pdfs  ${invoices}
+        Run Keyword If  ${length} > 0  download_and_rename_pdfs  ${invoices}  ${order}
     END
     Close Browser
 
 
 *** Keywords ***
-download_pdfs
-    [Arguments]   ${invoices}
+download_and_rename_pdfs
+    [Arguments]   ${invoices}  ${order}
     FOR  ${invoice}  IN  @{invoices}
-        # ${url}=  Get Element Attribute  css:tr > td:nth-child(1) > a  href
-        # ${url}=  Get Text  ${invoice}
+
+        # get href
+        ${url}=  Get Element Attribute  ${invoice}  href
+
+        # split url
+        ${invoice_num}=  Fetch From Right  ${url}  /
+
+        # download file and wait to finish
         Click Link  ${invoice}
-        Sleep  1.5s
+        Sleep  2s
+        
+        # rename file
+        ${old_name}=  Join Path  ${OUTPUT DIR}  tyroola  ${invoice_num}.pdf
+        ${new_name}=  Join Path  ${OUTPUT DIR}  tyroola  ${order}-inv_${invoice_num}.pdf
+        Move File  ${old_name}  ${new_name}
+
+        Sleep  1s
     END
